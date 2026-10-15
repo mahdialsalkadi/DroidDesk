@@ -2340,7 +2340,7 @@ class LinuxRuntime(private val context: Context) {
             rootPid?.let { android.os.Process.sendSignal(it, 15) } ?: process.destroy()
             try {
                 Thread.sleep(200)
-            } catch (_: InterruptedException) {
+            } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
             }
             descendants.asReversed().forEach { pid -> android.os.Process.sendSignal(pid, 9) }

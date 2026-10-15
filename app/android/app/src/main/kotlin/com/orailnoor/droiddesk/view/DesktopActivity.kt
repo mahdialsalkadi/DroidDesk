@@ -235,7 +235,7 @@ class DesktopActivity : Activity() {
             } else {
                 registerReceiver(batteryReceiver, filter)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {}
         lorieView?.post {
             lorieView?.requestFocus()
             lorieView?.reload()
@@ -287,7 +287,7 @@ class DesktopActivity : Activity() {
         clipboardSync?.stop()
         try {
             unregisterReceiver(batteryReceiver)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {}
         super.onPause()
     }
 
