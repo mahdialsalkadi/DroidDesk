@@ -29,6 +29,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.view.Gravity
 import android.content.Intent
+import android.content.Context
 import android.content.res.ColorStateList
 import com.orailnoor.droiddesk.R
 import com.orailnoor.droiddesk.service.DroidDeskService

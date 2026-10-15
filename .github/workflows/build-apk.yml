@@ -41,12 +41,8 @@ jobs:
         working-directory: app
         run: |
           flutter build apk --debug --target-platform android-arm64 -v > build.log 2>&1 || {
-            echo "::error::=== WHAT WENT WRONG ==="
-            grep -A 50 "What went wrong:" build.log | while IFS= read -r line; do
-              echo "::error::$line"
-            done
-            echo "::error::=== COMPILATION / GRADLE ERRORS ==="
-            grep -E -C 3 "(error:|e: |FAILURE:|FAILED|CMake Error)" build.log | head -n 60 | while IFS= read -r line; do
+            echo "::error::=== KOTLIN / COMPILER ERRORS ==="
+            grep -E "e: |error: " build.log | head -n 30 | while IFS= read -r line; do
               echo "::error::$line"
             done
             exit 1
