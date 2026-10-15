@@ -41,8 +41,12 @@ jobs:
         working-directory: app
         run: |
           flutter build apk --debug --target-platform android-arm64 -v > build.log 2>&1 || {
-            echo "::error::--- BUILD DEBUG FAILED ---"
-            tail -n 40 build.log | while IFS= read -r line; do
+            echo "::error::=== WHAT WENT WRONG ==="
+            grep -A 50 "What went wrong:" build.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            echo "::error::=== COMPILATION / GRADLE ERRORS ==="
+            grep -E -C 3 "(error:|e: |FAILURE:|FAILED|CMake Error)" build.log | head -n 60 | while IFS= read -r line; do
               echo "::error::$line"
             done
             exit 1
@@ -67,4 +71,6 @@ jobs:
         if: always()
         with:
           name: DroidDesk-APKs
-          path: app/build/app/outputs/flutter-apk/*.apk
+          path: |
+            **/outputs/apk/**/*.apk
+            **/outputs/flutter-apk/*.apk
