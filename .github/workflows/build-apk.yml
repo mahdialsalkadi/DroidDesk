@@ -40,11 +40,20 @@ jobs:
       - name: Build Debug APK
         working-directory: app
         run: |
-          flutter build apk --debug -v > build.log 2>&1 || { echo "=== BUILD FAILED: LAST 200 LINES ==="; tail -n 200 build.log; exit 1; }
+          flutter build apk --debug --target-platform android-arm64 -v > build.log 2>&1 || {
+            echo "::error::--- BUILD DEBUG FAILED ---"
+            tail -n 40 build.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit 1
+          }
 
       - name: Build Release APK
         working-directory: app
-        run: flutter build apk --release -v >> build.log 2>&1 || true
+        run: |
+          flutter build apk --release --target-platform android-arm64 -v >> build.log 2>&1 || {
+            echo "::warning::Release build failed, debug build will be used"
+          }
 
       - name: Upload Build Log
         if: always()
