@@ -412,10 +412,16 @@ public class TouchInputHandler {
     }
 
     public void setCapturingEnabled(boolean enabled) {
-        if (mInjector.pointerCapture && enabled)
-            mActivity.getLorieView().requestPointerCapture();
-        else
-            mActivity.getLorieView().releasePointerCapture();
+        LorieView lorieView = mActivity.getLorieView();
+        if (lorieView != null) {
+            if (mInjector.pointerCapture && enabled) {
+                if (!lorieView.hasPointerCapture())
+                    lorieView.requestPointerCapture();
+            } else {
+                if (lorieView.hasPointerCapture())
+                    lorieView.releasePointerCapture();
+            }
+        }
 
         if (mInjector.pauseKeyInterceptingWithEsc) {
             if (mInjector.dexMetaKeyCapture)
@@ -469,10 +475,12 @@ public class TouchInputHandler {
 
         MainActivity.getRealMetrics(mMetrics);
 
-        if (!p.pointerCapture.get() && mActivity.getLorieView().hasPointerCapture())
-            mActivity.getLorieView().releasePointerCapture();
+        LorieView lorieView = mActivity.getLorieView();
+        boolean hasCapture = lorieView != null && lorieView.hasPointerCapture();
+        if (!p.pointerCapture.get() && hasCapture)
+            lorieView.releasePointerCapture();
 
-        keyIntercepting = !mInjector.pauseKeyInterceptingWithEsc || mActivity.getLorieView().hasPointerCapture();
+        keyIntercepting = !mInjector.pauseKeyInterceptingWithEsc || hasCapture;
         SamsungDexUtils.dexMetaKeyCapture(mActivity, mInjector.dexMetaKeyCapture && keyIntercepting);
 
         swipeUpAction = extractUserActionFromPreferences(p, "swipeUp");

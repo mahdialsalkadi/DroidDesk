@@ -165,7 +165,7 @@ class DesktopActivity : Activity() {
             startClipboardSync()
             lorieView?.post {
                 lorieView?.requestFocus()
-                lorieView?.triggerCallback()
+                lorieView?.reload()
             }
         } else {
             clipboardSync?.stop()
@@ -217,8 +217,9 @@ class DesktopActivity : Activity() {
         if (event.action == MotionEvent.ACTION_DOWN && lorieView?.isFocused == false) {
             lorieView?.requestFocus()
         }
-        if (lorieView?.dispatchTouchEvent(event) == true) {
-            return true
+        val lv = lorieView
+        if (lv != null) {
+            return lv.dispatchTouchEvent(event)
         }
         return super.dispatchTouchEvent(event)
     }
@@ -237,7 +238,7 @@ class DesktopActivity : Activity() {
         } catch (_: Exception) {}
         lorieView?.post {
             lorieView?.requestFocus()
-            lorieView?.triggerCallback()
+            lorieView?.reload()
             inputController?.reacquireFocus()
         }
     }
@@ -327,9 +328,10 @@ class DesktopActivity : Activity() {
         TermuxMainActivity.getInstance().initLorieView(this)
         lorieView = TermuxMainActivity.getInstance().lorieView
 
-        // Keep Android overlay controls above the X11 SurfaceView.
-        lorieView!!.setZOrderOnTop(false)
-        placeholder.setBackgroundColor(Color.BLACK)
+        // Keep Android overlay controls above the X11 SurfaceView while preventing
+        // the window background from covering the surface.
+        lorieView!!.setZOrderMediaOverlay(true)
+        placeholder.setBackgroundColor(Color.TRANSPARENT)
 
         val params = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -355,6 +357,8 @@ class DesktopActivity : Activity() {
                     if (!connectionRequested) {
                         connectionRequested = true
                         connectToX11Service()
+                    } else {
+                        lorieView?.reload()
                     }
                 }
             }
