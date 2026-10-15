@@ -27,12 +27,11 @@ jobs:
           channel: 'stable'
           cache: false
 
-      - name: Inspect Android Environment
+      - name: Configure Android SDK, NDK, and Licenses
         run: |
           echo "ANDROID_HOME: $ANDROID_HOME"
-          ls -la "$ANDROID_HOME/ndk" 2>/dev/null || true
-          ls -la "$ANDROID_HOME/cmake" 2>/dev/null || true
           yes | flutter doctor --android-licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.3.11579264" "cmake;3.22.1" || true
 
       - name: Get Flutter dependencies
         working-directory: app
@@ -40,12 +39,19 @@ jobs:
 
       - name: Build Debug APK
         working-directory: app
-        run: flutter build apk --debug -v
+        run: |
+          flutter build apk --debug -v > build.log 2>&1 || { echo "=== BUILD FAILED: LAST 200 LINES ==="; tail -n 200 build.log; exit 1; }
 
       - name: Build Release APK
         working-directory: app
-        run: flutter build apk --release -v
-        continue-on-error: true
+        run: flutter build apk --release -v >> build.log 2>&1 || true
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: app/build.log
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
