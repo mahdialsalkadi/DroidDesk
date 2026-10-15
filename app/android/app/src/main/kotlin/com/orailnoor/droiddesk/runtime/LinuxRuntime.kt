@@ -181,8 +181,14 @@ class LinuxRuntime(private val context: Context) {
             export DISPLAY="${'$'}{DISPLAY:-:0}"
             export TMPDIR="${tmpDir.absolutePath}"
             mkdir -p "${tmpDir.absolutePath}/proot"
+            EXTRA_STORAGE_BINDS=""
+            if [ -d "/storage/emulated/0" ] && [ -r "/storage/emulated/0" ]; then
+                EXTRA_STORAGE_BINDS="--bind /storage/emulated/0:/sdcard --bind /storage/emulated/0:/storage/emulated/0"
+            elif [ -d "/sdcard" ] && [ -r "/sdcard" ]; then
+                EXTRA_STORAGE_BINDS="--bind /sdcard:/sdcard"
+            fi
             exec "${File(binDir, "proot-distro").absolutePath}" login debian \
-                --bind "${tmpDir.absolutePath}:/tmp" \
+                --bind "${tmpDir.absolutePath}:/tmp" ${'$'}EXTRA_STORAGE_BINDS \
                 --env PROOT_TMP_DIR="${tmpDir.absolutePath}/proot" \
                 --env PROOT_LOADER="${File(prefixDir, "libexec/proot/loader").absolutePath}" \
                 --env PROOT_LOADER_32="${File(prefixDir, "libexec/proot/loader32").absolutePath}" -- \
@@ -833,8 +839,9 @@ class LinuxRuntime(private val context: Context) {
         try {
             updateBatteryStatus()
             val batteryScript = File(binDir, "termux-battery-status")
+            val shPath = File(binDir, "sh").takeIf { it.exists() }?.absolutePath ?: "/bin/sh"
             val scriptContent = """
-                #!/data/user/0/com.orailnoor.droiddesk/files/usr/bin/sh
+                #!$shPath
                 BATTERY_FILE="${tmpDir.absolutePath}/battery.json"
                 if [ -f "${'$'}BATTERY_FILE" ]; then
                     cat "${'$'}BATTERY_FILE"

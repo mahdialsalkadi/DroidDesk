@@ -196,8 +196,10 @@ static const char* rewrite_path(const char* path, char* buf, size_t buf_size) {
         if (strncmp(path, fhs_prefixes[i], len) == 0) {
             if (i == 5 && tmpdir) {
                 snprintf(buf, buf_size, "%s/%s", tmpdir, path + len);
+            } else if (i == 0) {
+                snprintf(buf, buf_size, "%s/%s", NEW_PREFIX, path + len);
             } else {
-                snprintf(buf, buf_size, "%s/%s%s", NEW_PREFIX, subdirs[i], path + len);
+                snprintf(buf, buf_size, "%s/%s/%s", NEW_PREFIX, subdirs[i], path + len);
             }
             return buf;
         }
@@ -552,39 +554,60 @@ void *dlopen(const char *filename, int flag) {
 
 int execve(const char *filename, char *const argv[], char *const envp[]) {
     setup();
+    if (!filename) {
+        errno = ENOENT;
+        return -1;
+    }
     char buf[1024];
     const char *new_path = rewrite_path(filename, buf, sizeof(buf));
     if (real_execve) return real_execve(new_path, argv, envp);
+    errno = ENOSYS;
     return -1;
 }
 
 int execv(const char *path, char *const argv[]) {
     setup();
+    if (!path) {
+        errno = ENOENT;
+        return -1;
+    }
     char buf[1024];
     const char *new_path = rewrite_path(path, buf, sizeof(buf));
     if (real_execv) return real_execv(new_path, argv);
+    errno = ENOSYS;
     return -1;
 }
 
 int execvp(const char *file, char *const argv[]) {
     setup();
+    if (!file) {
+        errno = ENOENT;
+        return -1;
+    }
     char buf[1024];
     const char *new_path = rewrite_path(file, buf, sizeof(buf));
     if (real_execvp) return real_execvp(new_path, argv);
+    errno = ENOSYS;
     return -1;
 }
 
 int execvpe(const char *file, char *const argv[], char *const envp[]) {
     setup();
+    if (!file) {
+        errno = ENOENT;
+        return -1;
+    }
     char buf[1024];
     const char *new_path = rewrite_path(file, buf, sizeof(buf));
     if (real_execvpe) return real_execvpe(new_path, argv, envp);
+    errno = ENOSYS;
     return -1;
 }
 
 int posix_spawn(pid_t *pid, const char *path, const posix_spawn_file_actions_t *file_actions,
                 const posix_spawnattr_t *attrp, char *const argv[], char *const envp[]) {
     setup();
+    if (!path) return ENOENT;
     char buf[1024];
     const char *new_path = rewrite_path(path, buf, sizeof(buf));
     if (real_posix_spawn) {
@@ -596,6 +619,7 @@ int posix_spawn(pid_t *pid, const char *path, const posix_spawn_file_actions_t *
 int posix_spawnp(pid_t *pid, const char *file, const posix_spawn_file_actions_t *file_actions,
                  const posix_spawnattr_t *attrp, char *const argv[], char *const envp[]) {
     setup();
+    if (!file) return ENOENT;
     char buf[1024];
     const char *new_path = rewrite_path(file, buf, sizeof(buf));
     if (real_posix_spawnp) {

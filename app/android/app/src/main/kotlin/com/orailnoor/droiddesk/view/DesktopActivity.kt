@@ -208,7 +208,11 @@ class DesktopActivity : Activity() {
         }
         val control = controlOverlay
         if (control != null && control.visibility == View.VISIBLE) {
-            return super.dispatchTouchEvent(event)
+            val rect = android.graphics.Rect()
+            control.getGlobalVisibleRect(rect)
+            if (rect.contains(event.x.toInt(), event.y.toInt())) {
+                return super.dispatchTouchEvent(event)
+            }
         }
         if (event.action == MotionEvent.ACTION_DOWN && lorieView?.isFocused == false) {
             lorieView?.requestFocus()
@@ -224,7 +228,12 @@ class DesktopActivity : Activity() {
         enableImmersiveMode()
         restartSessionIfStopped()
         try {
-            registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+            val filter = android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(batteryReceiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(batteryReceiver, filter)
+            }
         } catch (_: Exception) {}
         lorieView?.post {
             lorieView?.requestFocus()
