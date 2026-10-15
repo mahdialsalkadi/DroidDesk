@@ -758,6 +758,11 @@ class LinuxRuntime(private val context: Context) {
             "/data/data/com.termux/files/usr/lib/xfce4/panel/migrate",
             "migrate",
         )
+        patchEmbeddedCommand(
+            File(prefixDir, "libexec/upowerd"),
+            "/data/data/com.termux/files/usr/bin/termux-battery-status",
+            "termux-battery-status",
+        )
     }
 
     private fun patchEmbeddedCommand(file: File, oldCommand: String, newCommand: String) {
@@ -788,6 +793,59 @@ class LinuxRuntime(private val context: Context) {
             file.writeBytes(bytes)
             file.setExecutable(true, false)
             Log.i(TAG, "Relocated embedded command in ${file.name}: $newCommand")
+        }
+    }
+
+    fun updateBatteryStatus() {
+        try {
+            val ifilter = android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
+            val bIntent = context.registerReceiver(null, ifilter)
+            val level = bIntent?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = bIntent?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+            val pct = if (level >= 0 && scale > 0) (level * 100 / scale.toFloat()).toInt() else 100
+            val status = bIntent?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+            val isCharging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == android.os.BatteryManager.BATTERY_STATUS_FULL
+            val pluggedInt = bIntent?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, -1) ?: -1
+            val plugged = when (pluggedInt) {
+                android.os.BatteryManager.BATTERY_PLUGGED_USB -> "PLUGGED_USB"
+                android.os.BatteryManager.BATTERY_PLUGGED_AC -> "PLUGGED_AC"
+                android.os.BatteryManager.BATTERY_PLUGGED_WIRELESS -> "PLUGGED_WIRELESS"
+                else -> if (isCharging) "PLUGGED_AC" else "UNPLUGGED"
+            }
+            val statusStr = when {
+                status == android.os.BatteryManager.BATTERY_STATUS_FULL -> "FULL"
+                isCharging -> "CHARGING"
+                else -> "DISCHARGING"
+            }
+            val tempRaw = bIntent?.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
+            val temp = String.format(java.util.Locale.US, "%.1f", tempRaw / 10.0)
+
+            val json = """{"health": "GOOD", "percentage": $pct, "plugged": "$plugged", "status": "$statusStr", "temperature": $temp, "current": 0}"""
+            tmpDir.mkdirs()
+            File(tmpDir, "battery.json").writeText(json)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to update battery status: ${e.message}")
+        }
+    }
+
+    private fun ensureBatteryHelper() {
+        try {
+            updateBatteryStatus()
+            val batteryScript = File(binDir, "termux-battery-status")
+            val scriptContent = """
+                #!/data/user/0/com.orailnoor.droiddesk/files/usr/bin/sh
+                BATTERY_FILE="${tmpDir.absolutePath}/battery.json"
+                if [ -f "${'$'}BATTERY_FILE" ]; then
+                    cat "${'$'}BATTERY_FILE"
+                    exit 0
+                fi
+                echo '{"health": "GOOD", "percentage": 100, "plugged": "UNPLUGGED", "status": "DISCHARGING", "temperature": 25.0, "current": 0}'
+            """.trimIndent() + "\n"
+            batteryScript.writeText(scriptContent)
+            batteryScript.setExecutable(true, false)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write battery helper: ${e.message}")
         }
     }
 
@@ -1948,6 +2006,7 @@ class LinuxRuntime(private val context: Context) {
         patchElfRunpaths(prefixDir)
         compileSocketHook()
         patchEmbeddedXfcePaths()
+        ensureBatteryHelper()
 
         // Packages whose maintainer scripts failed on older releases stay half-configured and
         // block every later apt install (and with it the Adreno driver). Finish them once

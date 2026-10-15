@@ -69,6 +69,11 @@ class DesktopActivity : Activity() {
     private var logoAnimator: FloatingLogoAnimator? = null
     private var surfaceCallback: SurfaceHolder.Callback? = null
     private var intentListenerThread: Thread? = null
+    private val batteryReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: android.content.Intent?) {
+            linuxRuntime.updateBatteryStatus()
+        }
+    }
     private var loadingOverlay: FrameLayout? = null
     private var loadingStatus: TextView? = null
     private var loadingEstimate: TextView? = null
@@ -192,10 +197,35 @@ class DesktopActivity : Activity() {
         return super.dispatchGenericMotionEvent(event)
     }
 
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        val collapsed = collapsedControl
+        if (collapsed != null && collapsed.visibility == View.VISIBLE) {
+            val rect = android.graphics.Rect()
+            collapsed.getGlobalVisibleRect(rect)
+            if (rect.contains(event.x.toInt(), event.y.toInt())) {
+                return super.dispatchTouchEvent(event)
+            }
+        }
+        val control = controlOverlay
+        if (control != null && control.visibility == View.VISIBLE) {
+            return super.dispatchTouchEvent(event)
+        }
+        if (event.action == MotionEvent.ACTION_DOWN && lorieView?.isFocused == false) {
+            lorieView?.requestFocus()
+        }
+        if (lorieView?.dispatchTouchEvent(event) == true) {
+            return true
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
     override fun onResume() {
         super.onResume()
         enableImmersiveMode()
         restartSessionIfStopped()
+        try {
+            registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+        } catch (_: Exception) {}
         lorieView?.post {
             lorieView?.requestFocus()
             lorieView?.triggerCallback()
@@ -245,6 +275,9 @@ class DesktopActivity : Activity() {
 
     override fun onPause() {
         clipboardSync?.stop()
+        try {
+            unregisterReceiver(batteryReceiver)
+        } catch (_: Exception) {}
         super.onPause()
     }
 

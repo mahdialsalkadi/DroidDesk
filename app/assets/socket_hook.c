@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <android/log.h>
+#include <spawn.h>
 
 #ifndef NEW_PREFIX
 #define NEW_PREFIX "/data/user/0/com.orailnoor.droiddesk/files/usr"
@@ -64,6 +65,12 @@ static int (*real_mknodat)(int, const char *, mode_t, dev_t) = NULL;
 static int (*real_mkfifo)(const char *, mode_t) = NULL;
 static int (*real_mkfifoat)(int, const char *, mode_t) = NULL;
 static void *(*real_dlopen)(const char *, int) = NULL;
+static int (*real_execve)(const char *, char *const [], char *const []) = NULL;
+static int (*real_execv)(const char *, char *const []) = NULL;
+static int (*real_execvp)(const char *, char *const []) = NULL;
+static int (*real_execvpe)(const char *, char *const [], char *const []) = NULL;
+static int (*real_posix_spawn)(pid_t *, const char *, const posix_spawn_file_actions_t *, const posix_spawnattr_t *, char *const [], char *const []) = NULL;
+static int (*real_posix_spawnp)(pid_t *, const char *, const posix_spawn_file_actions_t *, const posix_spawnattr_t *, char *const [], char *const []) = NULL;
 
 static volatile int hook_initialized = 0;
 static volatile int hook_initializing = 0;
@@ -116,6 +123,12 @@ static void do_init() {
     real_mkfifo = dlsym(RTLD_NEXT, "mkfifo");
     real_mkfifoat = dlsym(RTLD_NEXT, "mkfifoat");
     real_dlopen = dlsym(RTLD_NEXT, "dlopen");
+    real_execve = dlsym(RTLD_NEXT, "execve");
+    real_execv = dlsym(RTLD_NEXT, "execv");
+    real_execvp = dlsym(RTLD_NEXT, "execvp");
+    real_execvpe = dlsym(RTLD_NEXT, "execvpe");
+    real_posix_spawn = dlsym(RTLD_NEXT, "posix_spawn");
+    real_posix_spawnp = dlsym(RTLD_NEXT, "posix_spawnp");
     __sync_synchronize();
     hook_initialized = 1;
     __sync_lock_release(&hook_initializing);
@@ -536,3 +549,58 @@ void *dlopen(const char *filename, int flag) {
     }
     return ret;
 }
+
+int execve(const char *filename, char *const argv[], char *const envp[]) {
+    setup();
+    char buf[1024];
+    const char *new_path = rewrite_path(filename, buf, sizeof(buf));
+    if (real_execve) return real_execve(new_path, argv, envp);
+    return -1;
+}
+
+int execv(const char *path, char *const argv[]) {
+    setup();
+    char buf[1024];
+    const char *new_path = rewrite_path(path, buf, sizeof(buf));
+    if (real_execv) return real_execv(new_path, argv);
+    return -1;
+}
+
+int execvp(const char *file, char *const argv[]) {
+    setup();
+    char buf[1024];
+    const char *new_path = rewrite_path(file, buf, sizeof(buf));
+    if (real_execvp) return real_execvp(new_path, argv);
+    return -1;
+}
+
+int execvpe(const char *file, char *const argv[], char *const envp[]) {
+    setup();
+    char buf[1024];
+    const char *new_path = rewrite_path(file, buf, sizeof(buf));
+    if (real_execvpe) return real_execvpe(new_path, argv, envp);
+    return -1;
+}
+
+int posix_spawn(pid_t *pid, const char *path, const posix_spawn_file_actions_t *file_actions,
+                const posix_spawnattr_t *attrp, char *const argv[], char *const envp[]) {
+    setup();
+    char buf[1024];
+    const char *new_path = rewrite_path(path, buf, sizeof(buf));
+    if (real_posix_spawn) {
+        return real_posix_spawn(pid, new_path, file_actions, attrp, argv, envp);
+    }
+    return ENOSYS;
+}
+
+int posix_spawnp(pid_t *pid, const char *file, const posix_spawn_file_actions_t *file_actions,
+                 const posix_spawnattr_t *attrp, char *const argv[], char *const envp[]) {
+    setup();
+    char buf[1024];
+    const char *new_path = rewrite_path(file, buf, sizeof(buf));
+    if (real_posix_spawnp) {
+        return real_posix_spawnp(pid, new_path, file_actions, attrp, argv, envp);
+    }
+    return ENOSYS;
+}
+
