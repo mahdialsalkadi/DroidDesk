@@ -155,8 +155,16 @@ class DesktopActivity : Activity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) enableImmersiveMode()
-        if (hasFocus) startClipboardSync() else clipboardSync?.stop()
+        if (hasFocus) {
+            enableImmersiveMode()
+            startClipboardSync()
+            lorieView?.post {
+                lorieView?.requestFocus()
+                lorieView?.triggerCallback()
+            }
+        } else {
+            clipboardSync?.stop()
+        }
         if (hasFocus && !isSetupDone) {
             isSetupDone = true
             Log.i(TAG, "Window focused — setting up LorieView")
@@ -164,10 +172,35 @@ class DesktopActivity : Activity() {
         }
     }
 
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (event.keyCode == android.view.KeyEvent.KEYCODE_BACK) {
+            return super.dispatchKeyEvent(event)
+        }
+        if (TermuxMainActivity.getInstance().handleKey(event)) {
+            return true
+        }
+        if (lorieView?.dispatchKeyEvent(event) == true) {
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (lorieView?.dispatchGenericMotionEvent(event) == true) {
+            return true
+        }
+        return super.dispatchGenericMotionEvent(event)
+    }
+
     override fun onResume() {
         super.onResume()
         enableImmersiveMode()
         restartSessionIfStopped()
+        lorieView?.post {
+            lorieView?.requestFocus()
+            lorieView?.triggerCallback()
+            inputController?.reacquireFocus()
+        }
     }
 
     private fun isSessionRunning(): Boolean =
