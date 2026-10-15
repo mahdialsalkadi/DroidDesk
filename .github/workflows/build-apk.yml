@@ -21,11 +21,19 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK & CMake
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager --install "ndk;26.3.11579264" "cmake;3.22.1"
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
+          cache: false
 
       - name: Get Flutter dependencies
         working-directory: app
@@ -33,15 +41,16 @@ jobs:
 
       - name: Build Debug APK
         working-directory: app
-        run: flutter build apk --debug
+        run: flutter build apk --debug --verbose
 
       - name: Build Release APK
         working-directory: app
-        run: flutter build apk --release
+        run: flutter build apk --release --verbose
         continue-on-error: true
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: DroidDesk-APKs
           path: app/build/app/outputs/flutter-apk/*.apk
