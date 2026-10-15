@@ -50,6 +50,15 @@ class X11InputController(
         else -> "Trackpad"
     }
 
+    fun reacquireFocus() {
+        lorieView.requestFocus()
+        val prefs = MainActivity.getPrefs()
+        inputHandler.reloadPreferences(prefs)
+        if (prefs.pointerCapture.get()) {
+            lorieView.requestPointerCapture()
+        }
+    }
+
     fun dispose() {
         MainActivity.getInstance().setKeyHandler(null)
         TouchInputHandler.setThreeFingerTapListener(null)
